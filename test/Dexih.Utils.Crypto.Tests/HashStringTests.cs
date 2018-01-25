@@ -15,20 +15,20 @@ namespace Dexih.Utils.Crypto.Tests
         [InlineData("123123123123123")]
         [InlineData("123!@#$%^&*()_+-=`~\\|[]{};':\",./><?")]
         [InlineData("   ")]
-        public void HashFunctions(string TestValue)
+        public void HashFunctions(string testValue)
         {
             //Use a for loop to similate gen sequence.
-            string HashString1 = HashString.CreateHash(TestValue);
-            string HashString2 = HashString.CreateHash(TestValue);
-            Assert.NotEqual(HashString1, HashString2); //two hashes in a row should not be equal as they are salted;
+            var hashString1 = HashString.CreateHash(testValue);
+            var hashString2 = HashString.CreateHash(testValue);
+            Assert.NotEqual(hashString1, hashString2); //two hashes in a row should not be equal as they are salted;
 
-            string HashString3 = HashString.CreateHash(TestValue + " ");
+            var hashString3 = HashString.CreateHash(testValue + " ");
 
-            Assert.True(HashString.ValidateHash(TestValue, HashString1));
-            Assert.True(HashString.ValidateHash (TestValue, HashString2));
+            Assert.True(HashString.ValidateHash(testValue, hashString1));
+            Assert.True(HashString.ValidateHash (testValue, hashString2));
 
-            Assert.False(HashString.ValidateHash (TestValue, HashString3));
-            Assert.False(HashString.ValidateHash(TestValue + "1", HashString1 ));
+            Assert.False(HashString.ValidateHash (testValue, hashString3));
+            Assert.False(HashString.ValidateHash(testValue + "1", hashString1 ));
         }
     }
 }
