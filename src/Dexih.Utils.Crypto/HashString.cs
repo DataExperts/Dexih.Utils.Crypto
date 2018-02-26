@@ -1,120 +1,201 @@
-﻿/* 
- * Password Hashing With PBKDF2 (http://crackstation.net/hashing-security.htm).
- * Copyright (c) 2013, Taylor Hornby
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, 
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation 
- * and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE 
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
- * POSSIBILITY OF SUCH DAMAGE.
- */
+﻿// Based on algorithm
+// https://github.com/defuse/password-hashing/blob/master/PasswordStorage.cs
 
 using System;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 
 namespace Dexih.Utils.Crypto
 {
-    /// <summary>
-    /// Salted password hashing with PBKDF2-SHA1.
-    /// Author: havoc AT defuse.ca
-    /// www: http://crackstation.net/hashing-security.htm
-    /// Compatibility: .NET 3.0 and later.
-    /// </summary>
+    class InvalidHashException : Exception
+    {
+        public InvalidHashException() { }
+        public InvalidHashException(string message)
+            : base(message) { }
+        public InvalidHashException(string message, Exception inner)
+            : base(message, inner) { }
+    }
+
+    class CannotPerformOperationException : Exception
+    {
+        public CannotPerformOperationException() { }
+        public CannotPerformOperationException(string message)
+            : base(message) { }
+        public CannotPerformOperationException(string message, Exception inner)
+            : base(message, inner) { }
+    }
+    
     public class HashString
     {
-        // The following constants may be changed without breaking existing hashes.
-        public const int SaltByteSize = 24;
-        public const int HashByteSize = 24;
-        public const int Pbkdf2Iterations = 1000;
+        // These constants may be changed without breaking existing hashes.
+        public const int SALT_BYTES = 24;
+        public const int HASH_BYTES = 18;
+        public const int PBKDF2_ITERATIONS = 64000;
 
-        public const int IterationIndex = 0;
-        public const int SaltIndex = 1;
-        public const int Pbkdf2Index = 2;
+        // These constants define the encoding and may not be changed.
+        public const int HASH_SECTIONS = 5;
+        public const int HASH_ALGORITHM_INDEX = 0;
+        public const int ITERATION_INDEX = 1;
+        public const int HASH_SIZE_INDEX = 2;
+        public const int SALT_INDEX = 3;
+        public const int PBKDF2_INDEX = 4;
 
-        /// <summary>
-        /// Creates a salted PBKDF2 hash of the password.
-        /// </summary>
-        /// <param name="password">The password to hash.</param>
-        /// <returns>The hash of the password.</returns>
         public static string CreateHash(string password)
         {
             // Generate a random salt
-            //RNGCryptoServiceProvider csprng = new RNGCryptoServiceProvider(); not working in DNX50
-            var csprng = RandomNumberGenerator.Create();
-            var salt = new byte[SaltByteSize];
-            csprng.GetBytes(salt);
+            byte[] salt = new byte[SALT_BYTES];
+            try {
+                
+                using (var csprng = RandomNumberGenerator.Create()) {
+                        csprng.GetBytes(salt);
+                }
+            } catch (CryptographicException ex) {
+                throw new CannotPerformOperationException(
+                    "Random number generator not available.",
+                    ex
+                );
+            } catch (ArgumentNullException ex) {
+                throw new CannotPerformOperationException(
+                    "Invalid argument given to random number generator.",
+                    ex
+                );
+            }
 
-            // Hash the password and encode the parameters
-            var hash = Pbkdf2(password, salt, Pbkdf2Iterations, HashByteSize);
-            return Pbkdf2Iterations + ":" +
-                Convert.ToBase64String(salt) + ":" +
+            byte[] hash = KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA256, PBKDF2_ITERATIONS, HASH_BYTES);
+
+            // format: algorithm:iterations:hashSize:salt:hash
+            String parts = "sha256:" +
+                PBKDF2_ITERATIONS +
+                ":" +
+                hash.Length +
+                ":" +
+                Convert.ToBase64String(salt) +
+                ":" +
                 Convert.ToBase64String(hash);
+            return parts;
         }
 
-        /// <summary>
-        /// Validates a password given a hash of the correct one.
-        /// </summary>
-        /// <param name="password">The password to check.</param>
-        /// <param name="correctHash">A hash of the correct password.</param>
-        /// <returns>True if the password is correct. False otherwise.</returns>
-        public static bool ValidateHash(string password, string correctHash)
+        public static bool ValidateHash(string password, string goodHash)
         {
-            // Extract the parameters from the hash
             char[] delimiter = { ':' };
-            var split = correctHash.Split(delimiter);
-            var iterations = int.Parse(split[IterationIndex]);
-            var salt = Convert.FromBase64String(split[SaltIndex]);
-            var hash = Convert.FromBase64String(split[Pbkdf2Index]);
+            string[] split = goodHash.Split(delimiter);
 
-            var testHash = Pbkdf2(password, salt, iterations, hash.Length);
+            if (split.Length != HASH_SECTIONS) {
+                throw new InvalidHashException(
+                    "Fields are missing from the password hash."
+                );
+            }
+
+            // We only support SHA1 with C#.
+            if (split[HASH_ALGORITHM_INDEX] != "sha256") {
+                throw new CannotPerformOperationException(
+                    "Unsupported hash type."
+                );
+            }
+
+            int iterations = 0;
+            try {
+                iterations = Int32.Parse(split[ITERATION_INDEX]);
+            } catch (ArgumentNullException ex) {
+                throw new CannotPerformOperationException(
+                    "Invalid argument given to Int32.Parse",
+                    ex
+                );
+            } catch (FormatException ex) {
+                throw new InvalidHashException(
+                    "Could not parse the iteration count as an integer.",
+                    ex
+                );
+            } catch (OverflowException ex) {
+                throw new InvalidHashException(
+                    "The iteration count is too large to be represented.",
+                    ex
+                );
+            }
+
+            if (iterations < 1) {
+                throw new InvalidHashException(
+                    "Invalid number of iterations. Must be >= 1."
+                );
+            }
+
+            byte[] salt = null;
+            try {
+                salt = Convert.FromBase64String(split[SALT_INDEX]);
+            }
+            catch (ArgumentNullException ex) {
+                throw new CannotPerformOperationException(
+                    "Invalid argument given to Convert.FromBase64String",
+                    ex
+                );
+            } catch (FormatException ex) {
+                throw new InvalidHashException(
+                    "Base64 decoding of salt failed.",
+                    ex
+                );
+            }
+
+            byte[] hash = null;
+            try {
+                hash = Convert.FromBase64String(split[PBKDF2_INDEX]);
+            }
+            catch (ArgumentNullException ex) {
+                throw new CannotPerformOperationException(
+                    "Invalid argument given to Convert.FromBase64String",
+                    ex
+                );
+            } catch (FormatException ex) {
+                throw new InvalidHashException(
+                    "Base64 decoding of pbkdf2 output failed.",
+                    ex
+                );
+            }
+
+            int storedHashSize = 0;
+            try {
+                storedHashSize = Int32.Parse(split[HASH_SIZE_INDEX]);
+            } catch (ArgumentNullException ex) {
+                throw new CannotPerformOperationException(
+                    "Invalid argument given to Int32.Parse",
+                    ex
+                );
+            } catch (FormatException ex) {
+                throw new InvalidHashException(
+                    "Could not parse the hash size as an integer.",
+                    ex
+                );
+            } catch (OverflowException ex) {
+                throw new InvalidHashException(
+                    "The hash size is too large to be represented.",
+                    ex
+                );
+            }
+
+            if (storedHashSize != hash.Length) {
+                throw new InvalidHashException(
+                    "Hash length doesn't match stored hash length."
+                );
+            }
+
+            byte[] testHash = KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA256, iterations, hash.Length);
             return SlowEquals(hash, testHash);
         }
 
-        /// <summary>
-        /// Compares two byte arrays in length-constant time. This comparison
-        /// method is used so that password hashes cannot be extracted from
-        /// on-line systems using a timing attack and then attacked off-line.
-        /// </summary>
-        /// <param name="a">The first byte array.</param>
-        /// <param name="b">The second byte array.</param>
-        /// <returns>True if both byte arrays are equal. False otherwise.</returns>
         private static bool SlowEquals(byte[] a, byte[] b)
         {
-            var diff = (uint)a.Length ^ (uint)b.Length;
-            for (var i = 0; i < a.Length && i < b.Length; i++)
+            uint diff = (uint)a.Length ^ (uint)b.Length;
+            for (int i = 0; i < a.Length && i < b.Length; i++) {
                 diff |= (uint)(a[i] ^ b[i]);
+            }
             return diff == 0;
         }
 
-        /// <summary>
-        /// Computes the PBKDF2-SHA1 hash of a password.
-        /// </summary>
-        /// <param name="password">The password to hash.</param>
-        /// <param name="salt">The salt.</param>
-        /// <param name="iterations">The PBKDF2 iteration count.</param>
-        /// <param name="outputBytes">The length of the hash to generate, in bytes.</param>
-        /// <returns>A hash of the password.</returns>
-        private static byte[] Pbkdf2(string password, byte[] salt, int iterations, int outputBytes)
+        private static byte[] PBKDF2(string password, byte[] salt, int iterations, int outputBytes)
         {
-            var pbkdf2 = new Rfc2898DeriveBytes(password, salt) {IterationCount = iterations};
-            return pbkdf2.GetBytes(outputBytes);
+            using (Rfc2898DeriveBytes pbkdf2 = new Rfc2898DeriveBytes(password, salt)) {
+                pbkdf2.IterationCount = iterations;
+                return pbkdf2.GetBytes(outputBytes);
+            }
         }
     }
 }

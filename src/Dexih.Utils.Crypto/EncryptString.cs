@@ -35,6 +35,7 @@ namespace Dexih.Utils.Crypto
         /// </summary>
         /// <param name="plainText">String to encrypt</param>
         /// <param name="passPhrase">Encryption Key</param>
+        /// <param name="derivationIterations"></param>
         /// <returns></returns>
         public static string Encrypt(string plainText, string passPhrase, int derivationIterations)
         {
@@ -50,7 +51,7 @@ namespace Dexih.Utils.Crypto
                 using (var password = new Rfc2898DeriveBytes(passPhrase, saltStringBytes, derivationIterations))
                 {
                     var keyBytes = password.GetBytes(Keysize / 8);
-                    using (var symmetricKey = Aes.Create()) // not supported in .net core =new RijndaelManaged())
+                    using (var symmetricKey = Aes.Create()) 
                     {
                         symmetricKey.BlockSize = Keysize;
                         symmetricKey.Mode = CipherMode.CBC;
@@ -88,6 +89,7 @@ namespace Dexih.Utils.Crypto
         /// </summary>
         /// <param name="cipherText">The encrypted value to decrypt.</param>
         /// <param name="passPhrase">The encryption key used to initially encrypt the string.</param>
+        /// <param name="derivationIterations"></param>
         /// <returns></returns>
         public static string Decrypt(string cipherText, string passPhrase, int derivationIterations)
         {
@@ -109,7 +111,7 @@ namespace Dexih.Utils.Crypto
                 using (var password = new Rfc2898DeriveBytes(passPhrase, saltStringBytes, derivationIterations))
                 {
                     var keyBytes = password.GetBytes(Keysize / 8);
-                    using (var symmetricKey = Aes.Create()) // not supported in .net core =  new RijndaelManaged())
+                    using (var symmetricKey = Aes.Create()) 
                     {
                         symmetricKey.BlockSize = Keysize;
                         symmetricKey.Mode = CipherMode.CBC;
