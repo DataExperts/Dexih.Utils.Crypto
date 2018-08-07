@@ -25,20 +25,20 @@ namespace Dexih.Utils.Crypto
             : base(message, inner) { }
     }
     
-    public class HashString
+    public static class HashString
     {
         // These constants may be changed without breaking existing hashes.
-        public const int SALT_BYTES = 24;
-        public const int HASH_BYTES = 18;
-        public const int PBKDF2_ITERATIONS = 64000;
+        private const int SALT_BYTES = 24;
+        private const int HASH_BYTES = 18;
+        private const int PBKDF2_ITERATIONS = 64000;
 
         // These constants define the encoding and may not be changed.
-        public const int HASH_SECTIONS = 5;
-        public const int HASH_ALGORITHM_INDEX = 0;
-        public const int ITERATION_INDEX = 1;
-        public const int HASH_SIZE_INDEX = 2;
-        public const int SALT_INDEX = 3;
-        public const int PBKDF2_INDEX = 4;
+        private const int HASH_SECTIONS = 5;
+        private const int HASH_ALGORITHM_INDEX = 0;
+        private const int ITERATION_INDEX = 1;
+        private const int HASH_SIZE_INDEX = 2;
+        private const int SALT_INDEX = 3;
+        private const int PBKDF2_INDEX = 4;
 
         public static string CreateHash(string password)
         {
@@ -64,7 +64,7 @@ namespace Dexih.Utils.Crypto
             byte[] hash = KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA256, PBKDF2_ITERATIONS, HASH_BYTES);
 
             // format: algorithm:iterations:hashSize:salt:hash
-            String parts = "sha256:" +
+            string parts = "sha256:" +
                 PBKDF2_ITERATIONS +
                 ":" +
                 hash.Length +
@@ -78,7 +78,7 @@ namespace Dexih.Utils.Crypto
         public static bool ValidateHash(string password, string goodHash)
         {
             char[] delimiter = { ':' };
-            string[] split = goodHash.Split(delimiter);
+            var split = goodHash.Split(delimiter);
 
             if (split.Length != HASH_SECTIONS) {
                 throw new InvalidHashException(
@@ -86,16 +86,16 @@ namespace Dexih.Utils.Crypto
                 );
             }
 
-            // We only support SHA1 with C#.
+            // We only support SHA256
             if (split[HASH_ALGORITHM_INDEX] != "sha256") {
                 throw new CannotPerformOperationException(
                     "Unsupported hash type."
                 );
             }
 
-            int iterations = 0;
+            int iterations;
             try {
-                iterations = Int32.Parse(split[ITERATION_INDEX]);
+                iterations = int.Parse(split[ITERATION_INDEX]);
             } catch (ArgumentNullException ex) {
                 throw new CannotPerformOperationException(
                     "Invalid argument given to Int32.Parse",
@@ -119,7 +119,7 @@ namespace Dexih.Utils.Crypto
                 );
             }
 
-            byte[] salt = null;
+            byte[] salt;
             try {
                 salt = Convert.FromBase64String(split[SALT_INDEX]);
             }
@@ -135,7 +135,7 @@ namespace Dexih.Utils.Crypto
                 );
             }
 
-            byte[] hash = null;
+            byte[] hash;
             try {
                 hash = Convert.FromBase64String(split[PBKDF2_INDEX]);
             }
@@ -151,9 +151,9 @@ namespace Dexih.Utils.Crypto
                 );
             }
 
-            int storedHashSize = 0;
+            int storedHashSize;
             try {
-                storedHashSize = Int32.Parse(split[HASH_SIZE_INDEX]);
+                storedHashSize = int.Parse(split[HASH_SIZE_INDEX]);
             } catch (ArgumentNullException ex) {
                 throw new CannotPerformOperationException(
                     "Invalid argument given to Int32.Parse",
@@ -177,25 +177,17 @@ namespace Dexih.Utils.Crypto
                 );
             }
 
-            byte[] testHash = KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA256, iterations, hash.Length);
+            var testHash = KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA256, iterations, hash.Length);
             return SlowEquals(hash, testHash);
         }
 
         private static bool SlowEquals(byte[] a, byte[] b)
         {
-            uint diff = (uint)a.Length ^ (uint)b.Length;
-            for (int i = 0; i < a.Length && i < b.Length; i++) {
+            var diff = (uint)a.Length ^ (uint)b.Length;
+            for (var i = 0; i < a.Length && i < b.Length; i++) {
                 diff |= (uint)(a[i] ^ b[i]);
             }
             return diff == 0;
-        }
-
-        private static byte[] PBKDF2(string password, byte[] salt, int iterations, int outputBytes)
-        {
-            using (Rfc2898DeriveBytes pbkdf2 = new Rfc2898DeriveBytes(password, salt)) {
-                pbkdf2.IterationCount = iterations;
-                return pbkdf2.GetBytes(outputBytes);
-            }
         }
     }
 }

@@ -6,10 +6,19 @@ using System.Text;
 
 namespace Dexih.Utils.Crypto
 {
+    class InvalidEncryptionException : Exception
+    {
+        public InvalidEncryptionException() { }
+        public InvalidEncryptionException(string message)
+            : base(message) { }
+        public InvalidEncryptionException(string message, Exception inner)
+            : base(message, inner) { }
+    }
+    
     /// <summary>
     /// Code from http://stackoverflow.com/questions/10168240/encrypting-decrypting-a-string-in-c-sharp
     /// </summary>
-    public class EncryptString
+    public static class EncryptString
     {
         // This constant is used to determine the keysize of the encryption algorithm in bits.
         // We divide this by 8 within the code below to get the equivalent number of bytes.
@@ -34,52 +43,64 @@ namespace Dexih.Utils.Crypto
         /// Encrypts the string value using the passPhase as the encryption key.
         /// </summary>
         /// <param name="plainText">String to encrypt</param>
-        /// <param name="passPhrase">Encryption Key</param>
+        /// <param name="key">Encryption Key</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Encrypt(string plainText, string passPhrase, int derivationIterations)
+        public static string Encrypt(string plainText, string key, int derivationIterations)
         {
+
             try
             {
-                if (string.IsNullOrEmpty(plainText)) return "";
+                if (string.IsNullOrEmpty(plainText))
+                {
+                    return "";
+                }
+
+                if (string.IsNullOrEmpty(key))
+                {
+                    throw new InvalidEncryptionException("There is no encryption key specified.");
+                }
 
                 // Salt and IV is randomly generated each time, but is prepended to encrypted cipher text
                 // so that the same Salt and IV values can be used when decrypting.  
                 var saltStringBytes = Generate256BitsOfRandomEntropy();
                 var ivStringBytes = Generate256BitsOfRandomEntropy();
                 var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
-                using (var password = new Rfc2898DeriveBytes(passPhrase, saltStringBytes, derivationIterations))
+                
+                using (var password = new Rfc2898DeriveBytes(key, saltStringBytes, derivationIterations))
                 {
                     var keyBytes = password.GetBytes(Keysize / 8);
                     using (var symmetricKey = Aes.Create()) 
                     {
+                        if (symmetricKey == null)
+                        {
+                            throw new InvalidEncryptionException("Failed to create the encryption key");
+                        }
+
                         symmetricKey.BlockSize = Keysize;
                         symmetricKey.Mode = CipherMode.CBC;
                         symmetricKey.Padding = PaddingMode.PKCS7;
+
                         using (var encryptor = symmetricKey.CreateEncryptor(keyBytes, ivStringBytes))
+                        using (var memoryStream = new MemoryStream())
+                        using (var cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
                         {
-                            using (var memoryStream = new MemoryStream())
-                            {
-                                using (var cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
-                                {
-                                    cryptoStream.Write(plainTextBytes, 0, plainTextBytes.Length);
-                                    cryptoStream.FlushFinalBlock();
-                                    // Create the final bytes as a concatenation of the random salt bytes, the random iv bytes and the cipher bytes.
-                                    var cipherTextBytes = saltStringBytes;
-                                    cipherTextBytes = cipherTextBytes.Concat(ivStringBytes).ToArray();
-                                    cipherTextBytes = cipherTextBytes.Concat(memoryStream.ToArray()).ToArray();
-                                    memoryStream.Dispose();
-                                    cryptoStream.Dispose();
-                                    return Convert.ToBase64String(cipherTextBytes);
-                                }
-                            }
+                            cryptoStream.Write(plainTextBytes, 0, plainTextBytes.Length);
+                            cryptoStream.FlushFinalBlock();
+                            // Create the final bytes as a concatenation of the random salt bytes, the random iv bytes and the cipher bytes.
+                            var cipherTextBytes = saltStringBytes;
+                            cipherTextBytes = cipherTextBytes.Concat(ivStringBytes).ToArray();
+                            cipherTextBytes = cipherTextBytes.Concat(memoryStream.ToArray()).ToArray();
+                            memoryStream.Dispose();
+                            cryptoStream.Dispose();
+                            return Convert.ToBase64String(cipherTextBytes);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new AggregateException("The encrypt function encountered an unknown error.  See inner exception for details.", ex);
+                throw new InvalidEncryptionException("The encrypt function encountered an unknown error.  See inner exception for details.", ex);
             }
         }
 
@@ -88,15 +109,22 @@ namespace Dexih.Utils.Crypto
         /// Decrypts a string using the encryption key.
         /// </summary>
         /// <param name="cipherText">The encrypted value to decrypt.</param>
-        /// <param name="passPhrase">The encryption key used to initially encrypt the string.</param>
+        /// <param name="key">The encryption key used to initially encrypt the string.</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Decrypt(string cipherText, string passPhrase, int derivationIterations)
+        public static string Decrypt(string cipherText, string key, int derivationIterations)
         {
             try
             {
-                if (string.IsNullOrEmpty(cipherText)) return "";
+                if (string.IsNullOrEmpty(cipherText))
+                {
+                    return "";
+                }
 
+                if (string.IsNullOrEmpty(key))
+                {
+                    throw new InvalidEncryptionException("There is no encryption key specified.");
+                }
 
                 // Get the complete stream of bytes that represent:
                 // [32 bytes of Salt] + [32 bytes of IV] + [n bytes of CipherText]
@@ -108,39 +136,40 @@ namespace Dexih.Utils.Crypto
                 // Get the actual cipher text bytes by removing the first 64 bytes from the cipherText string.
                 var cipherTextBytes = cipherTextBytesWithSaltAndIv.Skip((Keysize / 8) * 2).Take(cipherTextBytesWithSaltAndIv.Length - ((Keysize / 8) * 2)).ToArray();
 
-                using (var password = new Rfc2898DeriveBytes(passPhrase, saltStringBytes, derivationIterations))
+                using (var password = new Rfc2898DeriveBytes(key, saltStringBytes, derivationIterations))
+                using (var symmetricKey = Aes.Create()) 
                 {
-                    var keyBytes = password.GetBytes(Keysize / 8);
-                    using (var symmetricKey = Aes.Create()) 
+                    if (symmetricKey == null)
                     {
-                        symmetricKey.BlockSize = Keysize;
-                        symmetricKey.Mode = CipherMode.CBC;
-                        symmetricKey.Padding = PaddingMode.PKCS7;
-                        using (var decryptor = symmetricKey.CreateDecryptor(keyBytes, ivStringBytes))
+                        throw new InvalidEncryptionException("Failed to create the encryption key");
+                    }
+
+                    symmetricKey.BlockSize = Keysize;
+                    symmetricKey.Mode = CipherMode.CBC;
+                    symmetricKey.Padding = PaddingMode.PKCS7;
+
+                    var keyBytes = password.GetBytes(Keysize / 8);
+
+                    using (var decryptor = symmetricKey.CreateDecryptor(keyBytes, ivStringBytes))
+                    using (var memoryStream = new MemoryStream(cipherTextBytes))
+                    using (var cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
+                    {
+                        var plainTextBytes = new byte[cipherTextBytes.Length];
+                        try
                         {
-                            using (var memoryStream = new MemoryStream(cipherTextBytes))
-                            {
-                                using (var cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
-                                {
-                                    var plainTextBytes = new byte[cipherTextBytes.Length];
-                                    try
-                                    {
-                                        var decryptedByteCount = cryptoStream.Read(plainTextBytes, 0, plainTextBytes.Length);
-                                        return Encoding.UTF8.GetString(plainTextBytes, 0, decryptedByteCount);
-                                    }
-                                    catch (CryptographicException ex)
-                                    {
-                                        throw new AggregateException("The string could not be decrypted.  See inner exception for details.", ex);
-                                    }
-                                }
-                            }
+                            var decryptedByteCount = cryptoStream.Read(plainTextBytes, 0, plainTextBytes.Length);
+                            return Encoding.UTF8.GetString(plainTextBytes, 0, decryptedByteCount);
+                        }
+                        catch (CryptographicException ex)
+                        {
+                            throw new InvalidEncryptionException("The string could not be decrypted.  See inner exception for details.", ex);
                         }
                     }
                 }
             }
             catch(Exception ex)
             {
-                throw new AggregateException("The decrypt function encountered an unknown error.  See inner exception for details.", ex);
+                throw new InvalidEncryptionException("The decrypt function encountered an unknown error.  See inner exception for details.", ex);
             }
         }
 
