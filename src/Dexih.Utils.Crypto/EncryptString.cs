@@ -6,14 +6,7 @@ using System.Text;
 
 namespace Dexih.Utils.Crypto
 {
-    class InvalidEncryptionException : Exception
-    {
-        public InvalidEncryptionException() { }
-        public InvalidEncryptionException(string message)
-            : base(message) { }
-        public InvalidEncryptionException(string message, Exception inner)
-            : base(message, inner) { }
-    }
+
     
     /// <summary>
     /// Code from http://stackoverflow.com/questions/10168240/encrypting-decrypting-a-string-in-c-sharp
@@ -58,7 +51,7 @@ namespace Dexih.Utils.Crypto
 
                 if (string.IsNullOrEmpty(key))
                 {
-                    throw new InvalidEncryptionException("There is no encryption key specified.");
+                    throw new InvalidEncryptionKeyException("There is no encryption key specified.");
                 }
 
                 // Salt and IV is randomly generated each time, but is prepended to encrypted cipher text
@@ -74,7 +67,7 @@ namespace Dexih.Utils.Crypto
                     {
                         if (symmetricKey == null)
                         {
-                            throw new InvalidEncryptionException("Failed to create the encryption key");
+                            throw new InvalidEncryptionKeyException("Failed to create the encryption key");
                         }
 
                         symmetricKey.BlockSize = Keysize;
@@ -97,6 +90,10 @@ namespace Dexih.Utils.Crypto
                         }
                     }
                 }
+            }
+            catch (InvalidEncryptionKeyException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -123,8 +120,9 @@ namespace Dexih.Utils.Crypto
 
                 if (string.IsNullOrEmpty(key))
                 {
-                    throw new InvalidEncryptionException("There is no encryption key specified.");
+                    throw new InvalidEncryptionKeyException("There is no encryption key specified.");
                 }
+
 
                 // Get the complete stream of bytes that represent:
                 // [32 bytes of Salt] + [32 bytes of IV] + [n bytes of CipherText]
@@ -134,14 +132,15 @@ namespace Dexih.Utils.Crypto
                 // Get the IV bytes by extracting the next 32 bytes from the supplied cipherText bytes.
                 var ivStringBytes = cipherTextBytesWithSaltAndIv.Skip(Keysize / 8).Take(Keysize / 8).ToArray();
                 // Get the actual cipher text bytes by removing the first 64 bytes from the cipherText string.
-                var cipherTextBytes = cipherTextBytesWithSaltAndIv.Skip((Keysize / 8) * 2).Take(cipherTextBytesWithSaltAndIv.Length - ((Keysize / 8) * 2)).ToArray();
+                var cipherTextBytes = cipherTextBytesWithSaltAndIv.Skip((Keysize / 8) * 2)
+                    .Take(cipherTextBytesWithSaltAndIv.Length - ((Keysize / 8) * 2)).ToArray();
 
                 using (var password = new Rfc2898DeriveBytes(key, saltStringBytes, derivationIterations))
-                using (var symmetricKey = Aes.Create()) 
+                using (var symmetricKey = Aes.Create())
                 {
                     if (symmetricKey == null)
                     {
-                        throw new InvalidEncryptionException("Failed to create the encryption key");
+                        throw new InvalidEncryptionKeyException("Failed to create the encryption key");
                     }
 
                     symmetricKey.BlockSize = Keysize;
@@ -155,17 +154,29 @@ namespace Dexih.Utils.Crypto
                     using (var cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
                     {
                         var plainTextBytes = new byte[cipherTextBytes.Length];
-                        try
-                        {
-                            var decryptedByteCount = cryptoStream.Read(plainTextBytes, 0, plainTextBytes.Length);
-                            return Encoding.UTF8.GetString(plainTextBytes, 0, decryptedByteCount);
-                        }
-                        catch (CryptographicException ex)
-                        {
-                            throw new InvalidEncryptionException("The string could not be decrypted.  See inner exception for details.", ex);
-                        }
+                        var decryptedByteCount = cryptoStream.Read(plainTextBytes, 0, plainTextBytes.Length);
+                        return Encoding.UTF8.GetString(plainTextBytes, 0, decryptedByteCount);
                     }
                 }
+            }
+            catch (InvalidEncryptionKeyException)
+            {
+                throw;
+            }
+            catch (InvalidEncryptionTextException)
+            {
+                throw;
+            }
+            catch (CryptographicException ex)
+            {
+                throw new InvalidEncryptionTextException(
+                    "The string could not be decrypted.  This is most likely due to an invalid encryption key or data.",
+                    ex);
+
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidEncryptionTextException("The text was not encrypted in the required format.", ex);
             }
             catch(Exception ex)
             {

@@ -54,6 +54,20 @@ namespace Dexih.Utils.Crypto.Tests
             output.WriteLine("Decrypt2 success.");
         }
 
+        [Fact]
+        public void DecryptBadKey()
+        {
+            var value = EncryptString.Encrypt("test value", "key", 100);
+
+            Assert.Throws<InvalidEncryptionTextException>(() => EncryptString.Decrypt(value, "badKey", 100));
+        }
+
+        [Fact]
+        public void DecryptBadText()
+        {
+            Assert.Throws<InvalidEncryptionTextException>(() => EncryptString.Decrypt("1231231", "key", 100));
+        }
+
         [Theory]
         [InlineData(2000)]
         public void EncryptPerformance(int iterations)
