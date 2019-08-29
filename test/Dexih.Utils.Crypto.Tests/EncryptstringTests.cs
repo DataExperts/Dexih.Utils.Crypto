@@ -16,6 +16,20 @@ namespace Dexih.Utils.Crypto.Tests
             this.output = output;
         }
 
+        [Fact]
+        public void RandomKey()
+        {
+            var key = EncryptString.GenerateRandomKey(50);
+            
+            Assert.Equal(50, key.Length);
+            
+            // check no bad characters
+            key = EncryptString.GenerateRandomKey(50000);
+            
+            Assert.False(key.Contains("/"));
+            Assert.False(key.Contains("+"));
+        }
+
         [Theory]
         [InlineData("a", "abc")]
         [InlineData("1a","abc")]

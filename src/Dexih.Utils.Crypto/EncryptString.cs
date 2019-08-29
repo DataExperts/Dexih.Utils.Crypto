@@ -17,19 +17,32 @@ namespace Dexih.Utils.Crypto
         // We divide this by 8 within the code below to get the equivalent number of bytes.
         private const int Keysize = 128;
 
+        internal static readonly char[] chars =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".ToCharArray(); 
+        
+
         // This constant determines the number of iterations for the password bytes generation function.
         //private const int DerivationIterations = 1000;
 
         public static string GenerateRandomKey(int length = 50)
         {
-            var randomBytes = new byte[length];
+            var randomBytes = new byte[length * 4];
 
             using (var randomNumber = RandomNumberGenerator.Create())
             {
                 randomNumber.GetBytes(randomBytes);
             }
 
-            return Convert.ToBase64String(randomBytes);
+            StringBuilder result = new StringBuilder(length);
+            for (int i = 0; i < length; i++)
+            {
+                var rnd = BitConverter.ToUInt32(randomBytes, i * 4);
+                var idx = rnd % chars.Length;
+
+                result.Append(chars[idx]);
+            }
+
+            return result.ToString();
         }
 
         /// <summary>
