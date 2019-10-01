@@ -52,7 +52,7 @@ namespace Dexih.Utils.Crypto
         /// <param name="key">Encryption Key</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Encrypt(string plainText, string key, int derivationIterations)
+        public static string Encrypt(string plainText, string key, int derivationIterations = 100)
         {
 
             try
@@ -122,7 +122,7 @@ namespace Dexih.Utils.Crypto
         /// <param name="key">The encryption key used to initially encrypt the string.</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Decrypt(string cipherText, string key, int derivationIterations)
+        public static string Decrypt(string cipherText, string key, int derivationIterations = 100)
         {
             try
             {

@@ -42,6 +42,11 @@ namespace Dexih.Utils.Crypto
 
         public static string CreateHash(string password)
         {
+            if (password == null)
+            {
+                return null;
+            }
+            
             // Generate a random salt
             byte[] salt = new byte[SALT_BYTES];
             try {
@@ -72,6 +77,7 @@ namespace Dexih.Utils.Crypto
                 Convert.ToBase64String(salt) +
                 ":" +
                 Convert.ToBase64String(hash);
+            
             return parts;
         }
 
