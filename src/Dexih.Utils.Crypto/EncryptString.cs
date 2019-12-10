@@ -45,6 +45,23 @@ namespace Dexih.Utils.Crypto
             return result.ToString();
         }
 
+        public static string Encrypt(string plainText, string key, int derivationIterations = 100)
+        {
+            if (string.IsNullOrEmpty(plainText))
+            {
+                return "";
+            }
+
+            if (string.IsNullOrEmpty(key))
+            {
+                throw new InvalidEncryptionKeyException("There is no encryption key specified.");
+            }
+            
+            var encryptBytes = Encrypt(Encoding.UTF8.GetBytes(plainText), Encoding.UTF8.GetBytes(key),
+                derivationIterations);
+            return Convert.ToBase64String(encryptBytes);
+        }
+        
         /// <summary>
         /// Encrypts the string value using the passPhase as the encryption key.
         /// </summary>
@@ -52,26 +69,14 @@ namespace Dexih.Utils.Crypto
         /// <param name="key">Encryption Key</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Encrypt(string plainText, string key, int derivationIterations = 100)
+        public static byte[] Encrypt(byte[] plainTextBytes, byte[] key, int derivationIterations = 100)
         {
-
             try
             {
-                if (string.IsNullOrEmpty(plainText))
-                {
-                    return "";
-                }
-
-                if (string.IsNullOrEmpty(key))
-                {
-                    throw new InvalidEncryptionKeyException("There is no encryption key specified.");
-                }
-
                 // Salt and IV is randomly generated each time, but is prepended to encrypted cipher text
                 // so that the same Salt and IV values can be used when decrypting.  
                 var saltStringBytes = Generate256BitsOfRandomEntropy();
                 var ivStringBytes = Generate256BitsOfRandomEntropy();
-                var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
                 
                 using (var password = new Rfc2898DeriveBytes(key, saltStringBytes, derivationIterations))
                 {
@@ -97,9 +102,7 @@ namespace Dexih.Utils.Crypto
                             var cipherTextBytes = saltStringBytes;
                             cipherTextBytes = cipherTextBytes.Concat(ivStringBytes).ToArray();
                             cipherTextBytes = cipherTextBytes.Concat(memoryStream.ToArray()).ToArray();
-                            memoryStream.Dispose();
-                            cryptoStream.Dispose();
-                            return Convert.ToBase64String(cipherTextBytes);
+                            return cipherTextBytes;
                         }
                     }
                 }
@@ -114,6 +117,29 @@ namespace Dexih.Utils.Crypto
             }
         }
 
+        public static string Decrypt(string cipherText, string key, int derivationIterations = 100)
+        {
+            if (string.IsNullOrEmpty(cipherText))
+            {
+                return "";
+            }
+
+            if (string.IsNullOrEmpty(key))
+            {
+                throw new InvalidEncryptionKeyException("There is no encryption key specified.");
+            }
+
+            try
+            {
+                var value = Decrypt(Convert.FromBase64String(cipherText), Encoding.UTF8.GetBytes(key),
+                    derivationIterations);
+                return Encoding.UTF8.GetString(value);
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidEncryptionTextException("The text was not encrypted in the required format.", ex);
+            }
+        }
 
         /// <summary>
         /// Decrypts a string using the encryption key.
@@ -122,24 +148,13 @@ namespace Dexih.Utils.Crypto
         /// <param name="key">The encryption key used to initially encrypt the string.</param>
         /// <param name="derivationIterations"></param>
         /// <returns></returns>
-        public static string Decrypt(string cipherText, string key, int derivationIterations = 100)
+        public static byte[] Decrypt(byte[] cipherBytes, byte[] key, int derivationIterations = 100)
         {
             try
             {
-                if (string.IsNullOrEmpty(cipherText))
-                {
-                    return "";
-                }
-
-                if (string.IsNullOrEmpty(key))
-                {
-                    throw new InvalidEncryptionKeyException("There is no encryption key specified.");
-                }
-
-
                 // Get the complete stream of bytes that represent:
                 // [32 bytes of Salt] + [32 bytes of IV] + [n bytes of CipherText]
-                var cipherTextBytesWithSaltAndIv = Convert.FromBase64String(cipherText);
+                var cipherTextBytesWithSaltAndIv = cipherBytes;
                 // Get the saltbytes by extracting the first 32 bytes from the supplied cipherText bytes.
                 var saltStringBytes = cipherTextBytesWithSaltAndIv.Take(Keysize / 8).ToArray();
                 // Get the IV bytes by extracting the next 32 bytes from the supplied cipherText bytes.
@@ -168,7 +183,7 @@ namespace Dexih.Utils.Crypto
                     {
                         var plainTextBytes = new byte[cipherTextBytes.Length];
                         var decryptedByteCount = cryptoStream.Read(plainTextBytes, 0, plainTextBytes.Length);
-                        return Encoding.UTF8.GetString(plainTextBytes, 0, decryptedByteCount);
+                        return plainTextBytes.Take(decryptedByteCount).ToArray();
                     }
                 }
             }
