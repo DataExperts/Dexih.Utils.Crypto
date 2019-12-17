@@ -12,7 +12,7 @@
 
 [![Build status][build-img]][build] [![Nuget][nuget-img]][nuget]
 
-The `Crypto` library provides best practice encryption and hashing methods.  These functions can be used to safely encrypt data and hash/salt passwords.  
+The `Crypto` library provides best practice encryption and hashing methods.  These functions can be used to safely encrypt data and hash passwords.  
 
 ## Installation
 
@@ -29,7 +29,7 @@ This library is based a number of publicly shared algorithms.
 
 Unique hashing is used to generate a unique fixed size key from a large string of data.
 
-This implementation uses SHA256 algorithm to generate the key.
+This implementation uses SHA256 algorithm to generate the unique hash.
 
 ```csharp
 var hash = UniqueHash.CreateHash(data);
@@ -40,6 +40,10 @@ var compareHash = UniqueHash.CreateHash(newData);
 if(hash == compareHash)
 {
     // data is the same.
+} 
+else 
+{
+    // data has changed.
 }
 ```
 
@@ -78,11 +82,11 @@ if(HashString.ValidateHash(password, hashedPassword))
 }
 ```
 
-## Encrypting Data
+## Symmetric Encryption
 
-Encryption is use to store or transport data securely, by using a common key for both encrypt/decrypt functions.
+Symmetric encryption is use to store/transport data securely, by using a common key for both encrypt/decrypt functions.
 
-The encryption function uses an AES (Advanced Encryption Standard) algorithm to perform encryption, and generates random salt values for the encryption key.
+This implementation uses an AES (Advanced Encryption Standard) algorithm, and generates random salt values for the encryption key.
 
 The encrypt function can use any key, however it is generally a good idea to use a cryptographically random key to reduce the possibility of common keys being used for a brute-force attack.
 
@@ -108,9 +112,9 @@ var originalValue = EncryptString.Decrypt(encrypted, key, 1000);
 
 ## Asymmetric Encryption
 
-Asymmetric encryption is used in scenarios where many public keys can be used to encrypt data, however only a secure private key can be used to decrypt the data.  A common use-case for this is when encrypting between a client/server where the server should be able to encrypt, but only the client can decrypt.
+Asymmetric encryption is used in scenarios where many public keys can be used to encrypt data, however only a secure private key can be used to decrypt the data.  A common use-case for this is when encrypting between a client/server where the server should be able to encrypt, but only the client can decrypt (i.e. SSL encryption).
 
-The asymmetric encryption uses the [Microsoft RSA Provider](https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.rsacryptoserviceprovider?view=netframework-4.8).  The RSA provider cannot be used for larger strings, so for strings larger than 50 characters, a random key is generated RSA encrypted, and use to encrypt the data using the (symmetric) AES algorithm.
+The asymmetric encryption uses the [Microsoft RSA Provider](https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.rsacryptoserviceprovider?view=netframework-4.8).  The RSA provider cannot be used for larger strings, so for strings larger than 50 characters, a random key is generated RSA encrypted, and then used to encrypt the data using the (symmetric) AES algorithm.
 
 Public/Private keys must be generated as follows.  User-defined keys cannot be used for this method.  The public key can be generated multiple times, however the private key must be kept unique.
 ```csharp
