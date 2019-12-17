@@ -25,7 +25,7 @@ namespace Dexih.Utils.Crypto
             : base(message, inner) { }
     }
     
-    public static class HashString
+    public static class SecureHash
     {
         // These constants may be changed without breaking existing hashes.
         private const int SALT_BYTES = 24;
