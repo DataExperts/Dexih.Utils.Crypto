@@ -1,6 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Dexih.Utils.Crypto</PackageId>
+    <Description>Provides best practice encryption and hashing methods.  These functions can be used to safely encrypt data and hash passwords.</Description>
+    <AssemblyTitle>Data Experts Group - Crypto</AssemblyTitle>
+    <Authors>Gary Holland</Authors>
+    <PackageTags>security;cryptography;encryption;decryption;encrypt;decrypt;hash;secure;SHA252;PBKDF2;salt;AES;asymmetric;symmetric</PackageTags>
+    <PackageReleaseNotes>Refer to the project url (https://github.com/DataExperts/Dexih.Utils.Crypto) for documentation and raising issues</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/DataExperts/Dexih.Utils.Crypto</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" Version="3.1.0" />
