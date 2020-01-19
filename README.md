@@ -12,7 +12,7 @@
 
 [![Build status][build-img]][build] [![Nuget][nuget-img]][nuget]
 
-The `Crypto` library provides best practice encryption and hashing methods.  These functions can be used to safely encrypt data and hash passwords.  
+The `Crypto` library provides best practice encryption and hashing functions.  These can be used to safely encrypt data and hash passwords.  
 
 ## Installation
 
@@ -49,7 +49,7 @@ else
 
 ## Secure Hashing
 
-Cryptographic (secure) hashing is used for storing data which does not need to be decrypted.  The common use-case scenario for this is when storing passwords, where the password is hashed, and is then used to compare to subsequent hashed versions of the password.
+Cryptographic (secure) hashing is used for storing data which does not need to be decrypted.  The common use-case scenario for this is when storing passwords, where the password is hashed, and then used to compare to subsequent hashed versions of the password.
 
 This implementation uses [PBKDF2](https://en.wikipedia.org/wiki/PBKDF2) with a SHA256 salt added.  This algorithm is slow by design to prevent brute-force style attacks.  
 
@@ -71,7 +71,7 @@ if(hashedPassword == comparePassword)
 }
 ```
 
-In order to validate a value matches an existing has the `ValidateHash` function should be used.
+In order to validate a value matches a hashed value, the `ValidateHash` function should be used.
 
 ```csharp
 var hashedPassword = SecureHash.CreateHash(password);
@@ -114,11 +114,13 @@ var originalValue = EncryptString.Decrypt(encrypted, key, 1000);
 
 Asymmetric encryption is used in scenarios where many public keys can be used to encrypt data, however only a secure private key can be used to decrypt the data.  A common use-case for this is when encrypting between a client/server where the server should be able to encrypt, but only the client can decrypt (i.e. SSL encryption).
 
-The asymmetric encryption uses the [Microsoft RSA Provider](https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.rsacryptoserviceprovider?view=netframework-4.8).  The RSA provider cannot be used for larger strings, so for strings larger than 50 characters, a random key is generated RSA encrypted, and then used to encrypt the data using the (symmetric) AES algorithm.
+The asymmetric encryption uses the [Microsoft RSA Provider](https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.rsacryptoserviceprovider?view=netframework-4.8).  The RSA provider cannot be used for larger strings, so for strings larger than 50 characters, a random key is generated, RSA encrypted, and then used to encrypt the data using the (symmetric) AES algorithm.
 
 Public/Private keys must be generated as follows.  User-defined keys cannot be used for this method.  The public key can be generated multiple times, however the private key must be kept unique.
 ```csharp
 var privateKey = AsymmetricEncrypt.GeneratePrivateKey();
+
+// many public keys can be created for one private key
 var publicKey = AsymmetricEncrypt.GeneratePublicKey(privateKey);
 ```
 
