@@ -16,7 +16,7 @@ The `Crypto` library provides best practice encryption and hashing functions.  T
 
 ## Installation
 
-Add the [latest version][nuget] of the package "dexih.utils.crypto" to a .net core/.net project.  This requires .net standard framework 2.0 or newer, or the .net framework 4.6 or newer.
+Add the [latest version][nuget] of the package "dexih.utils.crypto" to a .net core/.net project.  This requires .net standard framework 2.0 or newer, or the .net framework 4.6.1 or newer.
 
 ## Acknowledgements
 
