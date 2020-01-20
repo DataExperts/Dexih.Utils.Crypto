@@ -31,6 +31,7 @@ namespace Dexih.Utils.Crypto
         private const int SALT_BYTES = 24;
         private const int HASH_BYTES = 18;
         private const int PBKDF2_ITERATIONS = 64000;
+        private static readonly char[] delimiter = { ':' };
 
         // These constants define the encoding and may not be changed.
         private const int HASH_SECTIONS = 5;
@@ -83,7 +84,6 @@ namespace Dexih.Utils.Crypto
 
         public static bool ValidateHash(string password, string goodHash)
         {
-            char[] delimiter = { ':' };
             var split = goodHash.Split(delimiter);
 
             if (split.Length != HASH_SECTIONS) {

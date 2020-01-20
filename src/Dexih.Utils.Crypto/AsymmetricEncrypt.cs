@@ -7,6 +7,7 @@ namespace Dexih.Utils.Crypto
 {
     public static class AsymmetricEncrypt
     {
+        private static readonly byte[] ZeroBytes = new byte[] {0x00, 0x00 ,0x00 ,0x00};
         /// <summary>
         /// Generates a new private key for asymmetric encryption.
         /// </summary>
@@ -65,15 +66,21 @@ namespace Dexih.Utils.Crypto
                     var encryptedKey = rsa.Encrypt(key, true);
 
                     // combine the rsa and encrypted bytes.
-                    // the combined string contains length (4 bytes), encryptedKey (length), encryptedData (remainder)
-                    var combinedValue = BitConverter.GetBytes(encryptedKey.Length)
-                        .Concat(encryptedKey.Concat(encryptedBytes)).ToArray();
+                    // the combined string contains length (4 bytes), encryptedKey (length), encryptedBytes (remainder)
+                    var combinedValue = new byte[4 + encryptedKey.Length + encryptedBytes.Length];
+                    Array.Copy(BitConverter.GetBytes(encryptedKey.Length), combinedValue, 4);
+                    Array.Copy(encryptedKey, 0, combinedValue, 4, encryptedKey.Length);
+                    Array.Copy(encryptedBytes, 0, combinedValue, 4 + encryptedKey.Length, encryptedBytes.Length);
+                    
                     return Convert.ToBase64String(combinedValue);
                 }
                 else
                 {
                     var encryptedValue = rsa.Encrypt(valueBytes, true);
-                    var combinedValue = BitConverter.GetBytes(0).Concat(encryptedValue).ToArray();
+                    var combinedValue = new byte[4 + encryptedValue.Length];
+                    Array.Copy(ZeroBytes, 0, combinedValue, 0, 4);
+                    Array.Copy(encryptedValue, 0, combinedValue, 4, encryptedValue.Length);
+                    // var combinedValue = BitConverter.GetBytes(0).Concat(encryptedValue).ToArray();
                     return Convert.ToBase64String(combinedValue);
                 }
             }
@@ -92,22 +99,27 @@ namespace Dexih.Utils.Crypto
         /// <returns></returns>
         public static string Decrypt(byte[] data, string privateKey)
         {
-            var length = BitConverter.ToInt32(data.Take(4).ToArray(), 0);
+            var lengthBytes = new byte[4];
+            Array.Copy(data, lengthBytes, 4);
+            var length = BitConverter.ToInt32(lengthBytes, 0);
 
             var rsa = new RSACryptoServiceProvider();
             rsa.FromXmlString(privateKey);
             
             if (length == 0)
             {
-                var value = rsa.Decrypt(data.Skip(4).ToArray(), true);
+                // var value = rsa.Decrypt(data.Skip(4).ToArray(), true);
+                var value = rsa.Decrypt(EncryptString.CopyArray(data, 4, data.Length - 4), true);
                 return Encoding.UTF8.GetString(value);
             }
             else
             {
-                var encryptedKey = data.Skip(4).Take(length).ToArray();
-                
+                // var encryptedKey = data.Skip(4).Take(length).ToArray();
+                var encryptedKey = new byte[length];
+                Array.Copy(data, 4, encryptedKey, 0, length);
                 var key = rsa.Decrypt(encryptedKey, true);
-                var decrypted = EncryptString.Decrypt(data.Skip(4+length).ToArray(), key);
+                // var decrypted = EncryptString.Decrypt(data.Skip(4+length).ToArray(), key);
+                var decrypted = EncryptString.Decrypt(EncryptString.CopyArray(data, 4+length,data.Length - 4 - length), key);
                 return Encoding.UTF8.GetString(decrypted);
             }
         }
