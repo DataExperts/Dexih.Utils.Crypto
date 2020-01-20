@@ -39,7 +39,7 @@ namespace Dexih.Utils.Crypto.Tests
         [InlineData("   ", "abc")]
         public void EncryptDecrypt(string TestValue, string Key)
         {
-            //Use a for loop to similate gen sequence.
+            //Use a for loop to simulate gen sequence.
             var encryptString1 = EncryptString.Encrypt(TestValue, Key, 1000);
             var encryptString2 = EncryptString.Encrypt(TestValue, Key, 1000);
             Assert.False(string.IsNullOrEmpty(encryptString1));

@@ -41,6 +41,12 @@ namespace Dexih.Utils.Crypto
         private const int SALT_INDEX = 3;
         private const int PBKDF2_INDEX = 4;
 
+        /// <summary>
+        /// Computes a secure PBKDF2 hash value with a SHA256 salt added for the specified string
+        /// </summary>
+        /// <param name="password"></param>
+        /// <returns></returns>
+        /// <exception cref="CannotPerformOperationException"></exception>
         public static string CreateHash(string password)
         {
             if (password == null)
@@ -82,6 +88,14 @@ namespace Dexih.Utils.Crypto
             return parts;
         }
 
+        /// <summary>
+        /// Validates hash a created by <see cref="CreateHash"/>.
+        /// </summary>
+        /// <param name="password">Raw value to validate</param>
+        /// <param name="goodHash">Existing hash</param>
+        /// <returns></returns>
+        /// <exception cref="InvalidHashException"></exception>
+        /// <exception cref="CannotPerformOperationException"></exception>
         public static bool ValidateHash(string password, string goodHash)
         {
             var split = goodHash.Split(delimiter);

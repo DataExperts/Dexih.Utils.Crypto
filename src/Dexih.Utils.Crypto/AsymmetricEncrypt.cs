@@ -80,7 +80,6 @@ namespace Dexih.Utils.Crypto
                     var combinedValue = new byte[4 + encryptedValue.Length];
                     Array.Copy(ZeroBytes, 0, combinedValue, 0, 4);
                     Array.Copy(encryptedValue, 0, combinedValue, 4, encryptedValue.Length);
-                    // var combinedValue = BitConverter.GetBytes(0).Concat(encryptedValue).ToArray();
                     return Convert.ToBase64String(combinedValue);
                 }
             }
@@ -108,17 +107,14 @@ namespace Dexih.Utils.Crypto
             
             if (length == 0)
             {
-                // var value = rsa.Decrypt(data.Skip(4).ToArray(), true);
                 var value = rsa.Decrypt(EncryptString.CopyArray(data, 4, data.Length - 4), true);
                 return Encoding.UTF8.GetString(value);
             }
             else
             {
-                // var encryptedKey = data.Skip(4).Take(length).ToArray();
                 var encryptedKey = new byte[length];
                 Array.Copy(data, 4, encryptedKey, 0, length);
                 var key = rsa.Decrypt(encryptedKey, true);
-                // var decrypted = EncryptString.Decrypt(data.Skip(4+length).ToArray(), key);
                 var decrypted = EncryptString.Decrypt(EncryptString.CopyArray(data, 4+length,data.Length - 4 - length), key);
                 return Encoding.UTF8.GetString(decrypted);
             }

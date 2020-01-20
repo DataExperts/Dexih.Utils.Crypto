@@ -25,6 +25,11 @@ namespace Dexih.Utils.Crypto
         // This constant determines the number of iterations for the password bytes generation function.
         //private const int DerivationIterations = 1000;
 
+        /// <summary>
+        /// Generates a cryptographic random string of the specified length. 
+        /// </summary>
+        /// <param name="length"></param>
+        /// <returns></returns>
         public static string GenerateRandomKey(int length = 50)
         {
             var randomBytes = new byte[length * 4];
@@ -46,6 +51,14 @@ namespace Dexih.Utils.Crypto
             return result.ToString();
         }
 
+        /// <summary>
+        /// Encrypts the string using the key
+        /// </summary>
+        /// <param name="plainText"></param>
+        /// <param name="key"></param>
+        /// <param name="derivationIterations"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidEncryptionKeyException"></exception>
         public static string Encrypt(string plainText, string key, int derivationIterations = 100)
         {
             if (string.IsNullOrEmpty(plainText))
@@ -64,11 +77,11 @@ namespace Dexih.Utils.Crypto
         }
         
         /// <summary>
-        /// Encrypts the string value using the passPhase as the encryption key.
+        /// Encrypts the string value using a salted AES algorithm.
         /// </summary>
         /// <param name="plainText">String to encrypt</param>
         /// <param name="key">Encryption Key</param>
-        /// <param name="derivationIterations"></param>
+        /// <param name="derivationIterations">Number of interactions.  Higher number more secure, but slower.</param>
         /// <returns></returns>
         public static byte[] Encrypt(byte[] plainTextBytes, byte[] key, int derivationIterations = 100)
         {
@@ -103,7 +116,7 @@ namespace Dexih.Utils.Crypto
                             var cipherTextBytes = new byte[KeySizeDiv8 * 2 + memoryStream.Length];
                             Array.Copy(saltStringBytes, cipherTextBytes, KeySizeDiv8);
                             Array.Copy(ivStringBytes, 0, cipherTextBytes, KeySizeDiv8,  KeySizeDiv8);
-                            Array.Copy(memoryStream.ToArray(), 0, cipherTextBytes, KeySizeDiv8 * 2,  memoryStream.Length);
+                            Array.Copy(memoryStream.GetBuffer(), 0, cipherTextBytes, KeySizeDiv8 * 2,  memoryStream.Length);
                             return cipherTextBytes;
                         }
                     }
@@ -119,6 +132,15 @@ namespace Dexih.Utils.Crypto
             }
         }
 
+        /// <summary>
+        /// Decrypts a string encrypted by the <see cref="EncryptString"/>
+        /// </summary>
+        /// <param name="cipherText">Encrypted string</param>
+        /// <param name="key">Key</param>
+        /// <param name="derivationIterations">Number of iterations the string was encrypted with</param>
+        /// <returns></returns>
+        /// <exception cref="InvalidEncryptionKeyException"></exception>
+        /// <exception cref="InvalidEncryptionTextException"></exception>
         public static string Decrypt(string cipherText, string key, int derivationIterations = 100)
         {
             if (string.IsNullOrEmpty(cipherText))
